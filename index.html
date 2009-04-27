@@ -1,0 +1,239 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+    "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<title>Get Lat Lon - find the latitude and longitude of a point on a map</title>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<!--
+Undocumented feature: www.getlatlon.com/?PLACE zooms straight to that place
+-->
+<style type="text/css">
+body {
+    margin: 0;
+    margin-bottom: 3em;
+    padding: 0;
+    font-family: "Gill sans", sans-serif;
+    background-color: #fff;
+    color: #000;
+}
+div#hd {
+    text-align: center;
+    border-bottom: 2px solid black;
+}
+div#hd h1 {
+    margin-bottom: 0;
+    font-size: 1.5em;
+}
+div#ft {
+    border-top: 2px solid black;
+}
+div#ft p {
+    width: 500px;
+    margin: 1em auto;
+}
+p#builtby {
+    font-size: 0.8em;
+    text-align: right;
+    color: #666;
+}
+div#bd {
+    position: relative;
+}
+div#gmap {
+    width: 100%;
+    height: 400px; /* If you change this don't forget to change the crosshair position to match */
+}
+div#crosshair {
+    position: absolute;
+    top: 192px;
+    height: 19px;
+    width: 19px;
+    left: 50%;
+    margin-left: -8px;
+    display: block;
+    background: url(crosshair.gif);
+    background-position: center center;
+    background-repeat: no-repeat;
+}
+</style>
+<script src="http://www.google.com/jsapi?key=ABQIAAAAyYu8a7AdbfUctK3zwwu_2hQcSOGmiixENvtTH313vIgQ4X1LYBSDZW5glZCCklLKePmjvJ8YN_LpPA" type="text/javascript">
+</script>
+<script type="text/javascript">
+google.load('maps', '2'); // Load version 2 of the Maps API
+
+
+function timezoneLoaded(obj) {
+    var timezone = obj.timezoneId;
+    if (!timezone) {
+        return;
+    }
+    document.getElementById('timezone').innerHTML = timezone;
+    document.getElementById('timezonep').style.display = 'block';
+    // Find out what time it is there
+    var s = document.createElement('script');
+    s.src = "http://json-time.appspot.com/time.json?callback=timeLoaded&tz=" + timezone;
+    s.type = 'text/javascript';
+    document.getElementsByTagName('head')[0].appendChild(s);
+}
+
+function timeLoaded(obj) {
+    if (obj.datetime) {
+        document.getElementById('datetime').innerHTML = obj.datetime;
+        document.getElementById('datetimep').style.display = 'block';        
+    }
+}
+
+function showMap() {
+    window.gmap = new google.maps.Map2(document.getElementById('gmap'));
+    gmap.addControl(new google.maps.LargeMapControl());
+    gmap.addControl(new google.maps.MapTypeControl());
+    gmap.enableContinuousZoom();
+    gmap.enableScrollWheelZoom();
+    
+    var timer = null;
+    
+    google.maps.Event.addListener(gmap, "move", function() {
+        var center = gmap.getCenter();
+        document.getElementById("latlon").innerHTML = center.toString();
+        
+        // Wait a second, then figure out the timezone
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+        timer = setTimeout(function() {
+            document.getElementById('timezonep').style.display = 'none';
+            document.getElementById('datetimep').style.display = 'none';
+            // Look up the timezone using geonames
+            var s = document.createElement('script');
+            s.type = 'text/javascript';
+            s.src = "http://ws.geonames.org/timezoneJSON?lat=" + center.lat() +
+                "&lng=" + center.lng() + "&callback=timezoneLoaded";
+            document.getElementsByTagName("head")[0].appendChild(s);
+        }, 1500);
+        
+    });
+    google.maps.Event.addListener(gmap, "zoomend", function(oldZoom, newZoom) {
+        document.getElementById("zoom").innerHTML = newZoom;
+    });
+    google.maps.Event.addDomListener(document.getElementById('crosshair'),
+        'dblclick', function() {
+            gmap.zoomIn();
+        }
+    );
+    
+    // Default view of the world
+    gmap.setCenter(
+        new google.maps.LatLng(43.834526782236814, -37.265625), 3
+    );
+    
+    /* If we have a best-guess for the user's location based on their IP, 
+       show a "zoom to my location" link */
+    if (google.loader.ClientLocation) {
+        var link = document.createElement('a');
+        link.onclick = function() {
+            gmap.setCenter(
+                new google.maps.LatLng(
+                    google.loader.ClientLocation.latitude,
+                    google.loader.ClientLocation.longitude
+                ), 8
+            );
+            return false;
+        }
+        link.href = '#'
+        link.appendChild(
+            document.createTextNode('Zoom to my location (by IP)')
+        );
+        var form = document.getElementById('geocodeForm');
+        var p = form.getElementsByTagName('p')[0];
+        p.appendChild(link);
+    }
+    
+    // Set up Geocoder
+    window.geocoder = new google.maps.ClientGeocoder();
+    
+    // If query string was provided, geocode it
+    var bits = window.location.href.split('?');
+    if (bits[1]) {
+        var location = decodeURI(bits[1]);
+        document.getElementById('geocodeInput').value = location;
+        geocode(location);
+    }
+    
+    // Set up the form
+    var geocodeForm = document.getElementById('geocodeForm');
+    geocodeForm.onsubmit = function() {
+        geocode(document.getElementById('geocodeInput').value);
+        return false;
+    }
+}
+
+var accuracyToZoomLevel = [
+    1,  // 0 - Unknown location
+    5,  // 1 - Country
+    6,  // 2 - Region (state, province, prefecture, etc.)
+    8,  // 3 - Sub-region (county, municipality, etc.)
+    11, // 4 - Town (city, village)
+    13, // 5 - Post code (zip code)
+    15, // 6 - Street
+    16, // 7 - Intersection
+    17 // 8 - Address
+];
+
+function geocodeComplete(result) {
+    if (result.Status.code != 200) {
+        alert('Could not geocode "' + result.name + '"');
+        return;
+    }
+    var placemark = result.Placemark[0]; // Only use first result
+    var accuracy = placemark.AddressDetails.Accuracy;
+    var zoomLevel = accuracyToZoomLevel[accuracy] || 1;
+    var lon = placemark.Point.coordinates[0];
+    var lat = placemark.Point.coordinates[1];
+    gmap.setCenter(new google.maps.LatLng(lat, lon), zoomLevel);
+}
+
+function geocode(location) {
+    geocoder.getLocations(location, geocodeComplete);
+}
+
+google.setOnLoadCallback(showMap);
+</script>
+</head>
+<body>
+    <div id="hd">
+
+        <h1>Get Lat Lon</h1>
+        <p>Find the latitude and longitude of a point on a map.</p>
+        <form action="http://maps.google.com/maps" id="geocodeForm">
+            <p>
+                <label for="geocodeInput">Place name: </label>
+                <input type="text" name="q" id="geocodeInput">
+                <!-- "Accessible" version of Google Maps: -->
+
+                <input type="hidden" name="output" value="html">
+                <input type="submit" value="Zoom to place">
+            </p>
+        </form>
+    </div>
+    <div id="bd">
+        <div id="gmap"></div>
+        <div id="crosshair"></div>
+    </div>
+
+    <div id="ft">
+        <p><strong>Latitude, Longitude:</strong> <span id="latlon"></span></p>
+        <p><strong>Google Maps zoom level:</strong> <span id="zoom"></span></p>
+        <p id="timezonep" style="display: none"><strong>Timezone:</strong> <span id="timezone"></span></p>
+        <p id="datetimep" style="display: none"><strong>Local time:</strong> <span id="datetime"></span></p>
+        <p id="builtby">Built by <a href="http://simonwillison.net/2007/Oct/12/latlon/">Simon Willison</a></p>
+    </div>
+
+<script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+</script>
+
+<script type="text/javascript">
+var _uacct = "UA-1090368-4"; urchinTracker();
+</script>
+</body>
+</html>
