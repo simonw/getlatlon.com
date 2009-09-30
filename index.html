@@ -85,7 +85,6 @@ function timeLoaded(obj) {
 
 function updateLatLonFields(lat, lon) {
     document.getElementById("latlon").innerHTML = lat + ', ' + lon;
-    document.getElementById("lonlat").innerHTML = lon + ', ' + lat;
     document.getElementById("wkt").innerHTML = 'POINT('+lon+' '+lat +')';
 }
 
@@ -229,7 +228,6 @@ google.setOnLoadCallback(showMap);
 
     <div id="ft">
         <p><strong>Latitude, Longitude:</strong> <span id="latlon"></span></p>
-        <p><strong>Longitude, Latitude:</strong> <span id="lonlat"></span></p>
         <p><strong>WKT:</strong> <span id="wkt"></span></p>
         <p><strong>Google Maps zoom level:</strong> <span id="zoom"></span></p>
         <p id="timezonep" style="display: none"><strong>Timezone:</strong> <span id="timezone"></span></p>
