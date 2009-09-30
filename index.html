@@ -83,6 +83,12 @@ function timeLoaded(obj) {
     }
 }
 
+function updateLatLonFields(lat, lon) {
+    document.getElementById("latlon").innerHTML = lat + ', ' + lon;
+    document.getElementById("lonlat").innerHTML = lon + ', ' + lat;
+    document.getElementById("wkt").innerHTML = 'POINT('+lon+' '+lat +')';
+}
+
 function showMap() {
     window.gmap = new google.maps.Map2(document.getElementById('gmap'));
     gmap.addControl(new google.maps.LargeMapControl());
@@ -94,7 +100,7 @@ function showMap() {
     
     google.maps.Event.addListener(gmap, "move", function() {
         var center = gmap.getCenter();
-        document.getElementById("latlon").innerHTML = center.toString();
+        updateLatLonFields(center.lat(), center.lng());
         
         // Wait a second, then figure out the timezone
         if (timer) {
@@ -223,6 +229,8 @@ google.setOnLoadCallback(showMap);
 
     <div id="ft">
         <p><strong>Latitude, Longitude:</strong> <span id="latlon"></span></p>
+        <p><strong>Longitude, Latitude:</strong> <span id="lonlat"></span></p>
+        <p><strong>WKT:</strong> <span id="wkt"></span></p>
         <p><strong>Google Maps zoom level:</strong> <span id="zoom"></span></p>
         <p id="timezonep" style="display: none"><strong>Timezone:</strong> <span id="timezone"></span></p>
         <p id="datetimep" style="display: none"><strong>Local time:</strong> <span id="datetime"></span></p>
