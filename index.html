@@ -58,6 +58,23 @@ div#crosshair {
 </style>
 <script src="http://www.google.com/jsapi?key=ABQIAAAAyYu8a7AdbfUctK3zwwu_2hQcSOGmiixENvtTH313vIgQ4X1LYBSDZW5glZCCklLKePmjvJ8YN_LpPA" type="text/javascript">
 </script>
+<script>
+/* geo-location-javascript v0.4.3
+* http://code.google.com/p/geo-location-javascript/ */
+
+var bb_successCallback,bb_errorCallback;
+function handleBlackBerryLocation(){if(bb_successCallback&&bb_errorCallback){if(blackberry.location.latitude==0&&blackberry.location.longitude==0)bb_errorCallback({message:"Position unavailable",code:2});else{var f=null;if(blackberry.location.timestamp)f=new Date(blackberry.location.timestamp);bb_successCallback({timestamp:f,coords:{latitude:blackberry.location.latitude,longitude:blackberry.location.longitude}})}parseFloat(navigator.appVersion)>=4.6&&blackberry.location.removeLocationUpdate(handleBlackBerryLocation);bb_errorCallback=
+bb_successCallback=null}}
+var geo_position_js=function(){var f={},d=null;f.getCurrentPosition=function(i,e,b){d.getCurrentPosition(i,e,b)};f.init=function(){try{if(typeof geo_position_js_simulator!="undefined")d=geo_position_js_simulator;else if(typeof bondi!="undefined"&&typeof bondi.geolocation!="undefined")d=bondi.geolocation;else if(typeof window.google!="undefined"&&typeof window.google.gears!="undefined"){d=google.gears.factory.create("beta.geolocation");f.getCurrentPosition=function(e,b,c){try{d.getCurrentPosition(function(g){typeof g.latitude!="undefined"?
+e({timestamp:g.timestamp,coords:{latitude:g.latitude,longitude:g.longitude}}):e(g)},b,c)}catch(a){b({message:a,code:1})}}}else if(typeof navigator.geolocation!="undefined"){d=navigator.geolocation;f.getCurrentPosition=function(e,b,c){d.getCurrentPosition(function(a){typeof a.latitude!="undefined"?e({timestamp:a.timestamp,coords:{latitude:a.latitude,longitude:a.longitude}}):e(a)},b,c)};f.watchPosition=function(e,b,c){try{d.watchPosition(e,b,c);f.clearWatch=function(g){typeof d.clearWatch!="undefined"&&
+d.clearWatch(g)}}catch(a){b({message:a,code:1})}}}else if(typeof Mojo!="undefined"&&typeof Mojo.Service!="undefined"&&typeof Mojo.Service.Request!="Mojo.Service.Request"){d=true;f.getCurrentPosition=function(e,b,c){parameters={};if(c){if(c.enableHighAccuracy&&c.enableHighAccuracy==true)parameters.accuracy=1;if(c.maximumAge)parameters.maximumAge=c.maximumAge;if(c.responseTime)if(c.responseTime<5)parameters.responseTime=1;else if(c.responseTime<20)parameters.responseTime=2;else parameters.timeout=3}r=
+new Mojo.Service.Request("palm://com.palm.location",{method:"getCurrentPosition",parameters:parameters,onSuccess:function(a){e({timestamp:a.timestamp,coords:{latitude:a.latitude,longitude:a.longitude,heading:a.heading}})},onFailure:function(a){if(a.errorCode==1)b({code:3,message:"Timeout"});else a.errorCode==2?b({code:2,message:"Position Unavailable"}):b({code:0,message:"Unknown Error: webOS-code"+errorCode})}})}}else if(typeof device!="undefined"&&typeof device.getServiceObject!="undefined"){d=device.getServiceObject("Service.Location",
+"ILocation");f.getCurrentPosition=function(e,b){var c={};c.LocationInformationClass="BasicLocationInformation";d.ILocation.GetLocation(c,function(a,g,h){g==4?b({message:"Position unavailable",code:2}):e({timestamp:null,coords:{latitude:h.ReturnValue.Latitude,longitude:h.ReturnValue.Longitude,altitude:h.ReturnValue.Altitude,heading:h.ReturnValue.Heading}})})}}else if(typeof window.blackberry!="undefined"&&blackberry.location.GPSSupported){blackberry.location.setAidMode(2);f.getCurrentPosition=function(e,
+b){bb_successCallback=e;bb_errorCallback=b;parseFloat(navigator.appVersion)>=4.6?blackberry.location.onLocationUpdate(handleBlackBerryLocation):blackberry.location.onLocationUpdate("handleBlackBerryLocation()");blackberry.location.refreshLocation()};d=blackberry.location}}catch(i){typeof console!="undefined"&&console.log(i)}return d!=null};return f}();
+
+var canGeoDetect = geo_position_js.init();
+</script>
+
 <script type="text/javascript">
 google.load('maps', '2'); // Load version 2 of the Maps API
 
@@ -109,6 +126,16 @@ function getOSMMapType() {
 }
 
 function showMap() {
+    var geodetectButton = document.getElementById('geodetect');
+    if (canGeoDetect) {
+        geodetectButton.style.display='inline';
+    }
+
+    geodetectButton.onclick = function() {
+        geodetect();
+        return false;
+    }
+
     window.gmap = new google.maps.Map2(document.getElementById('gmap'));
     gmap.addControl(new google.maps.LargeMapControl());
     gmap.addControl(new google.maps.MapTypeControl());
@@ -194,7 +221,7 @@ function showMap() {
     }
 }
 
-var accuracyToZoomLevel = [
+var geocodeAccuracyToZoomLevel = [
     1,  // 0 - Unknown location
     5,  // 1 - Country
     6,  // 2 - Region (state, province, prefecture, etc.)
@@ -214,7 +241,7 @@ function geocodeComplete(result) {
     }
     var placemark = result.Placemark[0]; // Only use first result
     var accuracy = placemark.AddressDetails.Accuracy;
-    var zoomLevel = accuracyToZoomLevel[accuracy] || 1;
+    var zoomLevel = geocodeAccuracyToZoomLevel[accuracy] || 1;
     var lon = placemark.Point.coordinates[0];
     var lat = placemark.Point.coordinates[1];
     gmap.setCenter(new google.maps.LatLng(lat, lon), zoomLevel);
@@ -222,6 +249,22 @@ function geocodeComplete(result) {
 
 function geocode(location) {
     geocoder.getLocations(location, geocodeComplete);
+}
+
+
+function geoDetectSuccess(p) {
+    gmap.setCenter(new google.maps.LatLng(p.coords.latitude, 
+                                          p.coords.longitude), 
+                                          13); //post code (hack since not all detect methods include accuracy)
+}
+
+function geodetect() {
+    geo_position_js.getCurrentPosition(
+        geoDetectSuccess, 
+        function(){
+            alert("Could not detect location.")
+        }
+    );
 }
 
 google.setOnLoadCallback(showMap);
@@ -242,6 +285,7 @@ google.setOnLoadCallback(showMap);
                 <input type="submit" value="Zoom to place">
             </p>
         </form>
+        <p><button id="geodetect" style="display:none">Detect location of your browser</button></p>
     </div>
     <div id="bd">
         <div id="gmap"></div>
